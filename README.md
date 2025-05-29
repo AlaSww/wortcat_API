@@ -39,7 +39,7 @@ com.Alasww.wortcat_API
 ├── deck/              # Deck management
 ├── stats/             # User learning stats and scheduling
 ├── user/              # User and role management
-├── config/            # JWT, SM2 and security configuration
+├── config/            # JWT security configuration
 └── WortcatApiApplication.java
 ```
 
