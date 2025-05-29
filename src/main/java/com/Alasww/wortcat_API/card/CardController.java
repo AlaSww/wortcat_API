@@ -47,7 +47,7 @@ public class CardController {
     }
     @GetMapping
     public List<Card> get_cards(@PathVariable("deck_id") long deck_id){
-        return deckService.get_cards(deck_id);
+        return deckService.getCards(deck_id);
     }
     @PutMapping("/{card_id}/move/{new_deck_id}")
     public ResponseEntity<Card> move_card(
