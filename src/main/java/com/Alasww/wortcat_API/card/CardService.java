@@ -5,6 +5,8 @@ import com.Alasww.wortcat_API.deck.DeckRepo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -16,72 +18,115 @@ public class CardService {
     @Autowired
     private CardRepo cardRepo;
 
-    public Card create_card(String front, String back, long deck_id){
-        Deck deck = deckRepo.findById(deck_id).orElseThrow();
-        Card card= new Card(front,back,deck);
-        return  cardRepo.save(card);
+    public Card createCard(String front, String back, long deckId){
+        Deck deck = deckRepo.findById(deckId).orElseThrow();
+        Card card = new Card(front, back, deck);
+        return cardRepo.save(card);
     }
 
-    public Card move_card(long card_id, long deck_id, long new_deck_id) {
-        Card card=cardRepo.findById(card_id).orElseThrow();
-        Deck deck = deckRepo.findById(deck_id).orElseThrow();
-        if(card.getDeck().getId()==deck_id
-           && deckRepo.existsById(new_deck_id)
-        ){
-            deck.remove_card(card);
-            card.setDeck(deckRepo.findById(new_deck_id).orElseThrow());
+    public Card moveCard(long cardId, long deckId, long newDeckId) {
+        Card card = cardRepo.findById(cardId).orElseThrow();
+        Deck deck = deckRepo.findById(deckId).orElseThrow();
+        if(card.getDeck().getId() == deckId && deckRepo.existsById(newDeckId)) {
+            deck.removeCard(card);
+            card.setDeck(deckRepo.findById(newDeckId).orElseThrow());
             return cardRepo.save(card);
         }
         return null;
     }
 
-    public Card copy_card(long card_id, long new_deck_id) {
-        Deck new_deck= deckRepo.findById(new_deck_id).orElseThrow();
-        Card old_card=cardRepo.findById(card_id).orElseThrow();
-        Card new_card=new Card(
-                old_card.getFront(),
-                old_card.getBack(),
-                new_deck
+    public Card copyCard(long cardId, long newDeckId) {
+        Deck newDeck = deckRepo.findById(newDeckId).orElseThrow();
+        Card oldCard = cardRepo.findById(cardId).orElseThrow();
+        Card newCard = new Card(
+                oldCard.getFront(),
+                oldCard.getBack(),
+                newDeck
         );
-        return cardRepo.save(new_card);
+        return cardRepo.save(newCard);
     }
 
-    public Card update_card(long card_id, String front, String back) {
-        Card card=cardRepo.findById(card_id).orElseThrow();
+    public Card updateCard(long cardId, String front, String back) {
+        Card card = cardRepo.findById(cardId).orElseThrow();
         card.setFront(front);
         card.setBack(back);
         return cardRepo.save(card);
     }
 
-    //this is also responsable of unfreezing cards
-    public Card freeze_card(long card_id) {
-        Card card= cardRepo.findById(card_id).orElseThrow();
-        if (card.isFreezed()){
-            card.setFreezed(false);
-        }
-        else {
-            card.setFreezed(true);
-        }
+    // This is also responsible for unfreezing cards
+    public Card freezeCard(long cardId) {
+        Card card = cardRepo.findById(cardId).orElseThrow();
+        card.setFreezed(!card.isFreezed());
         return cardRepo.save(card);
     }
 
-    public Card get_details(long card_id) {
-        return cardRepo.findById(card_id).orElseThrow();
+    public Card getDetails(long cardId) {
+        return cardRepo.findById(cardId).orElseThrow();
     }
 
-    public void delete_card(long card_id) {
-        cardRepo.deleteById(card_id);
+    public void deleteCard(long cardId) {
+        cardRepo.deleteById(cardId);
     }
 
-    public List<Card> search_cards(long deck_id,String query) {
-        Deck deck=deckRepo.findById(deck_id).orElseThrow();
-        List<Card> all_cards=deck.getCards();
-        List<Card> filtered_cards=new ArrayList<>();
-        for (Card i:all_cards){
-            if (i.getBack().contains(query) || i.getFront().contains(query)){
-                filtered_cards.add(i);
+    public List<Card> searchCards(long deckId, String query) {
+        Deck deck = deckRepo.findById(deckId).orElseThrow();
+        List<Card> allCards = deck.getCards();
+        List<Card> filteredCards = new ArrayList<>();
+        for (Card card : allCards) {
+            if (card.getBack().contains(query) || card.getFront().contains(query)) {
+                filteredCards.add(card);
             }
         }
-        return filtered_cards;
+        return filteredCards;
+    }
+
+    public Card reviewCard(long cardId, int quality) {
+        Card card = cardRepo.findById(cardId)
+                .orElseThrow(() -> new RuntimeException("Card not found"));
+
+        quality = Math.max(0, Math.min(3, quality));
+        LocalDateTime now = LocalDateTime.now();
+
+        if (quality < 2) {
+            card.setRepititions(0);
+            card.setInterval(Duration.ofMinutes(10));
+        } else {
+            card.setRepititions(card.getRepititions() + 1);
+            if (card.getRepititions() == 1) {
+                card.setInterval(Duration.ofMinutes(10));
+            } else if (card.getRepititions() == 2) {
+                card.setInterval(Duration.ofHours(12));
+            } else {
+                long intervalMinutes = (long) Math.round(
+                        card.getInterval().toMinutes() * card.getEaseFactor()
+                );
+                card.setInterval(Duration.ofMinutes(intervalMinutes));
+            }
+        }
+
+        float easeFactor = (float) (
+                card.getEaseFactor() + (0.1 - (3 - quality) * (0.08 + (3 - quality) * 0.02))
+        );
+        card.setEaseFactor(Math.max(easeFactor, 1.3F));
+
+        card.setLastReviewed(now);
+        card.setNextReview(now.plus(card.getInterval()));
+
+        return cardRepo.save(card);
+    }
+
+    public List<Card> getCardsToReview(long deckId) {
+        Deck deck = deckRepo.findById(deckId)
+                .orElseThrow(() -> new RuntimeException("Deck not found"));
+
+        List<Card> allCards = deck.getCards();
+        List<Card> cardsToReview = new ArrayList<>();
+
+        for (Card card : allCards) {
+            if (card.getNextReview().isBefore(LocalDateTime.now()) && !card.isFreezed()) {
+                cardsToReview.add(card);
+            }
+        }
+        return cardsToReview;
     }
 }

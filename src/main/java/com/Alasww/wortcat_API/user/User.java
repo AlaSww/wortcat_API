@@ -1,6 +1,7 @@
 package com.Alasww.wortcat_API.user;
 
 import com.Alasww.wortcat_API.deck.Deck;
+import com.Alasww.wortcat_API.stats.Stat;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Builder;
@@ -28,6 +29,10 @@ public class User implements UserDetails {
     private String email;
 
     private String passwordHash;
+
+    @JsonIgnore
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private Stat stat;
 
     @Enumerated(EnumType.STRING)
     private Role role=Role.USER;

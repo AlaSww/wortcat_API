@@ -40,7 +40,7 @@ public class Deck {
         this.description=description;
         this.user=user;
     }
-    public void remove_card(Card card){
+    public void removeCard(Card card){
         cards.remove(card);
         card.setDeck(null);
     }
